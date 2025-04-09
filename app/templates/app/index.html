@@ -29,19 +29,20 @@
         <thead>
             <tr>
                 <th>Company Name</th>
-                <th>Filing Date</th>
-                <th>Filing Type</th>
-                <th>Filing Description</th>
+                <th>Date</th>
+                <th>subject</th>
+                <th>Details</th>
+                
                 <!-- Add any other columns you need -->
             </tr>
         </thead>
         <tbody>
-            {% for filing in filings %}
+            {% for data in filings %}
             <tr>
-                <td>{{ filing.company_name }}</td>
-                <td>{{ filing.filing_date }}</td>
-                <td>{{ filing.filing_type }}</td>
-                <td>{{ filing.details }}</td>
+                <td>{{ data.company_name }}</td>
+                <td>{{ data.filing_date }}</td>
+                <td>{{ data.subject }}</td>
+                <td>{{ data.details }}</td>
                 <!-- Add any other fields you want to display -->
             </tr>
             {% empty %}
