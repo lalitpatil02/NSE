@@ -1,16 +1,22 @@
 from django.db import models
+from django.utils import timezone
 
 class CorporateFiling(models.Model):
-    company_name = models.CharField(max_length=255)
-    symbol = models.CharField(max_length=50)
+    symbol = models.CharField(max_length=20)
+    company_name = models.CharField(max_length=200)
     subject = models.TextField()
-    announcement_date = models.DateField()
-    details = models.TextField(blank=True, null=True)
-    broadcast_datetime = models.DateTimeField(blank=True, null=True)
-    receipt_datetime = models.DateTimeField(blank=True, null=True)
-    dissemination_datetime = models.DateTimeField(blank=True, null=True)
-    difference = models.CharField(max_length=50, blank=True, null=True)
-    attachment_url = models.URLField(blank=True, null=True)
+    filing_date = models.DateField()
+    filing_type = models.CharField(max_length=100)
+    pdf_link = models.URLField(max_length=500, null=True, blank=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-filing_date']
+        indexes = [
+            models.Index(fields=['symbol']),
+            models.Index(fields=['filing_date']),
+        ]
 
     def __str__(self):
-        return f"{self.symbol} - {self.subject[:30]}"
+        return f"{self.symbol} - {self.subject[:50]}"
