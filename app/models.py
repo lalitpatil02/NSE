@@ -11,6 +11,9 @@ class CorporateFiling(models.Model):
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
     details = models.TextField()
+    source = models.CharField(max_length=100, null=True, blank=True)
+    category = models.CharField(max_length=100, null=True, blank=True)
+    
     class Meta:
         ordering = ['-filing_date']
         indexes = [
