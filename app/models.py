@@ -10,7 +10,7 @@ class CorporateFiling(models.Model):
     pdf_link = models.URLField(max_length=500, null=True, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
-
+    details = models.TextField()
     class Meta:
         ordering = ['-filing_date']
         indexes = [

@@ -133,7 +133,8 @@ class Command(BaseCommand):
                             'subject': row.get('SUBJECT', ''),
                             'filing_type': row.get('SUBJECT', ''),  # Using SUBJECT as filing type
                             'pdf_link': row.get('ATTACHMENT', ''),
-                            'filing_date': filing_date
+                            'filing_date': filing_date,
+                            'details': row.get('DETAILS', ''),
                         }
                         
                         # Create or update the record

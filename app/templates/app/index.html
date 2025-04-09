@@ -3,90 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NSE Corporate Filings</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .search-form {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .filing-card {
-            margin-bottom: 15px;
-            transition: transform 0.2s;
-        }
-        .filing-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .pdf-link {
-            color: #dc3545;
-        }
-        .pdf-link:hover {
-            color: #c82333;
-        }
-    </style>
+    <title>Corporate Filings</title>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1 class="mb-4">NSE Corporate Filings</h1>
+    <h1>Corporate Filings</h1>
+    
+    <!-- Search Form -->
+    <form method="GET" action="">
+        <label for="company_name">Company Name:</label>
+        <input type="text" id="company_name" name="company_name" value="{{ company_name }}">
         
-        <!-- Search Form -->
-        <div class="search-form">
-            <form method="get" class="row g-3">
-                <div class="col-md-4">
-                    <label for="company_name" class="form-label">Company Name</label>
-                    <input type="text" class="form-control" id="company_name" name="company_name" 
-                           value="{{ company_name }}" placeholder="Enter company name">
-                </div>
-                <div class="col-md-3">
-                    <label for="start_date" class="form-label">Start Date</label>
-                    <input type="date" class="form-control" id="start_date" name="start_date" 
-                           value="{{ start_date }}">
-                </div>
-                <div class="col-md-3">
-                    <label for="end_date" class="form-label">End Date</label>
-                    <input type="date" class="form-control" id="end_date" name="end_date" 
-                           value="{{ end_date }}">
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="submit" class="btn btn-primary w-100">Search</button>
-                </div>
-            </form>
-        </div>
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" value="{{ start_date }}">
+        
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" value="{{ end_date }}">
+        
+        <button type="submit">Search</button>
+        <!-- Clear button to reset the form -->
+        <button type="reset" onclick="window.location.href='{{ request.path }}'">Clear</button>
+    </form>
 
-        <!-- Results Count -->
-        <div class="mb-3">
-            <strong>Total Results:</strong> {{ filings|length }}
-        </div>
-
-        <!-- Filings List -->
-        {% if filings %}
+    <!-- Display Filings in a Table -->
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Company Name</th>
+                <th>Filing Date</th>
+                <th>Filing Type</th>
+                <th>Filing Description</th>
+                <!-- Add any other columns you need -->
+            </tr>
+        </thead>
+        <tbody>
             {% for filing in filings %}
-                <div class="card filing-card">
-                    <div class="card-body">
-                        <h5 class="card-title">{{ filing.company_name }} ({{ filing.symbol }})</h5>
-                        <h6 class="card-subtitle mb-2 text-muted">
-                            Filing Date: {{ filing.filing_date|date:"d M Y" }}
-                        </h6>
-                        <p class="card-text">{{ filing.subject }}</p>
-                        {% if filing.pdf_link %}
-                            <a href="{{ filing.pdf_link }}" class="pdf-link" target="_blank">
-                                <i class="fas fa-file-pdf"></i> View PDF
-                            </a>
-                        {% endif %}
-                    </div>
-                </div>
+            <tr>
+                <td>{{ filing.company_name }}</td>
+                <td>{{ filing.filing_date }}</td>
+                <td>{{ filing.filing_type }}</td>
+                <td>{{ filing.details }}</td>
+                <!-- Add any other fields you want to display -->
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">No data found.</td>
+            </tr>
             {% endfor %}
-        {% else %}
-            <div class="alert alert-info">
-                No filings found matching your search criteria.
-            </div>
-        {% endif %}
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+        </tbody>
+    </table>
 </body>
-</html> 
+</html>
