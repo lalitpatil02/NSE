@@ -31,6 +31,21 @@ class Command(BaseCommand):
             help='Categories to fetch: equity, sme, mf (default: all three)'
         )
 
+    def parse_datetime(self, value):
+        if pd.isna(value) or not isinstance(value, str):
+            return None
+        try:
+            # Remove curly quotes and other weird characters
+            value = value.strip().strip('“”"\'')
+            return datetime.strptime(value, "%d-%b-%Y %H:%M:%S")
+        except ValueError:
+            try:
+                # Fallback to datetime with microseconds or time zone if needed
+                return datetime.fromisoformat(value)
+            except Exception:
+                self.stdout.write(self.style.WARNING(f"Unrecognized datetime format: {value}"))
+                return None
+        
     def handle(self, *args, **kwargs):
         # Get the categories to fetch from the command line arguments
         categories_to_fetch = [category.lower() for category in kwargs.get('categories', ['equity', 'sme', 'mf'])]
@@ -268,7 +283,14 @@ class Command(BaseCommand):
                             'filing_date': filing_date,
                             'details': row.get('DETAILS', ''),
                             'source': 'NSE',
-                            'category': category  # Save the category (equity, sme, or mf)
+                            'category': category,  # Save the category (equity, sme, or mf)
+                            'AMC_scheme_name': row.get('AMC/SCHEME NAME', ''),  
+                            'broadcast_date': self.parse_datetime(row.get('BROADCAST DATE/TIME', '')),
+                            'receipt_date': self.parse_datetime(row.get('RECEIPT', '')),
+                            'dissemination': self.parse_datetime(row.get('DISSEMINATION', '')),
+                            'difference':row.get('DIFFERENCE','')
+
+
                         }
                         
                         # Create or update the record

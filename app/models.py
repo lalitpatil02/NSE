@@ -13,6 +13,12 @@ class CorporateFiling(models.Model):
     details = models.TextField()
     source = models.CharField(max_length=100, null=True, blank=True)
     category = models.CharField(max_length=100, null=True, blank=True)
+    AMC_scheme_name= models.CharField(max_length=100, null=True, blank=True)
+    broadcast_date = models.DateTimeField(null=True,blank=True)
+    receipt_date =  models.DateTimeField(null=True,blank=True)
+    dissemination = models.DateTimeField(null=True,blank=True)
+    difference = models.TimeField(null=True,blank=True)
+
     
     class Meta:
         ordering = ['-filing_date']
