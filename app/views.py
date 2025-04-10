@@ -11,6 +11,7 @@ def index(request):
     company_name = request.GET.get('company_name', '')
     start_date = request.GET.get('start_date', '')
     end_date = request.GET.get('end_date', '')
+    category = request.GET.get('category', '')
     
     # Apply filters if provided
     if company_name:
@@ -30,11 +31,21 @@ def index(request):
         except ValueError:
             pass
     
+    if category:
+        filings = filings.filter(category=category)
+    
+    # Get distinct categories for dropdown
+    category_values = CorporateFiling.objects.values_list('category', flat=True)
+    # Use a set to ensure uniqueness, filter None values, and convert back to sorted list
+    categories = sorted(set(c for c in category_values if c))
+    
     context = {
         'filings': filings,
         'company_name': company_name,
         'start_date': start_date,
         'end_date': end_date,
+        'selected_category': category,
+        'categories': categories,
     }
     
     return render(request, 'app/index.html', context)
