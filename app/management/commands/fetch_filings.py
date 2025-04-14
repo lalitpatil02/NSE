@@ -169,9 +169,7 @@ class Command(BaseCommand):
                 tab_element.click()
                 self.stdout.write(f"Direct click on {category.upper()} tab succeeded")
             except Exception as e:
-                self.stdout.write(f"Direct click failed ({str(e)}), trying JavaScript click...")
                 driver.execute_script("arguments[0].click();", tab_element)
-                self.stdout.write(f"JavaScript click on {category.upper()} tab executed")
                 
             self.stdout.write(f"Clicked on {category.upper()} tab")
             time.sleep(5)  # Allow tab to load
@@ -221,9 +219,7 @@ class Command(BaseCommand):
                 download_btn.click()
                 self.stdout.write(f"Direct click on download button succeeded")
             except Exception as e:
-                self.stdout.write(f"Direct click failed ({str(e)}), trying JavaScript click...")
                 driver.execute_script("arguments[0].click();", download_btn)
-                self.stdout.write(f"JavaScript click on download button executed")
 
             self.stdout.write(f"{category.upper()} download initiated. Waiting for file...")
             
