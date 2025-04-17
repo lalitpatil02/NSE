@@ -49,7 +49,7 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         api_key = "t0zjktzp454kxkzt"
         api_secret = "aki7m034o2ud5swopbw0g88muoq0ifjt"
-        request_token = "9G2mC1TiLfidRAv0x597JbyBb7RjY0De"
+        request_token = "QHd70tOqxsp2sDcAz505QKlxWKq1dXnt&"
 
         kite = KiteConnect(api_key=api_key)
 
@@ -135,36 +135,49 @@ class Command(BaseCommand):
             #             'exchange': row['exchange']
             #         })
             #  ===================================== end here ================================================
+            api_key = "t0zjktzp454kxkzt"
+            api_secret = "aki7m034o2ud5swopbw0g88muoq0ifjt"
+            request_token = "QHd70tOqxsp2sDcAz505QKlxWKq1dXnt"  # Replace with new one daily
 
+            kite = KiteConnect(api_key=api_key)
+
+            session_data = kite.generate_session(request_token, api_secret=api_secret)
+            access_token = session_data["access_token"]
+            print(access_token,"=-=-=-=-:access_token")
+            kite.set_access_token(access_token)
+
+            # Step 2: Prepare instruments to fetch LTP for
             instruments = ["NSE:INFY", "BSE:SENSEX", "NSE:NIFTY 50"]
-
-            # Prepare query parameters
             params = [("i", i) for i in instruments]
 
-            # API headers
+            # Step 3: Prepare API headers with access token
             headers = {
                 "X-Kite-Version": "3",
-                "Authorization": f"token {api_key}:{request_token}"
+                "Authorization": f"token {api_key}:{access_token}"
             }
 
-            # Make API request
+            # Step 4: Make the LTP API call
             response = requests.get("https://api.kite.trade/quote/ltp", headers=headers, params=params)
             data = response.json()
 
-            # Check for success and write to CSV
+            # Step 5: Handle response
             if data.get("status") == "success":
                 with open("ltp_data.csv", mode="w", newline="") as csvfile:
                     fieldnames = ["instrument", "instrument_token", "last_price"]
                     writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
                     writer.writeheader()
+
                     for instrument, details in data["data"].items():
                         writer.writerow({
                             "instrument": instrument,
                             "instrument_token": details["instrument_token"],
                             "last_price": details["last_price"]
                         })
-                print("✅ LTP data saved to ltp_data.csv")
+
+                self.stdout.write(self.style.SUCCESS("✅ LTP data saved to ltp_data.csv"))
             else:
-                print("❌ Failed to fetch data:", data)
+                self.stderr.write(f"❌ Failed to fetch LTP: {data}")
         except Exception as e:
             self.stderr.write(f"Error: {e}")
+
+            # https://chatgpt.com/c/6800e56c-f710-8009-b8d0-5ea6aae71a25
