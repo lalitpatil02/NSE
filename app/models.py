@@ -29,3 +29,13 @@ class CorporateFiling(models.Model):
 
     def __str__(self):
         return f"{self.symbol} - {self.subject[:50]}"
+
+
+class KiteToken(models.Model):
+    access_token = models.CharField(max_length=200)
+    public_token = models.CharField(max_length=200, blank=True, null=True)
+    request_token = models.CharField(max_length=200, blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"KiteToken (created: {self.created_at})"

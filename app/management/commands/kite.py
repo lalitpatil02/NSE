@@ -43,20 +43,21 @@ from django.core.management.base import BaseCommand
 from kiteconnect import KiteConnect
 import requests
 import csv
+from app.models import KiteToken
 class Command(BaseCommand):
     help = "Fetch user profile and balance from Zerodha Kite"
 
     def handle(self, *args, **kwargs):
-        api_key = "t0zjktzp454kxkzt"
-        api_secret = "aki7m034o2ud5swopbw0g88muoq0ifjt"
-        request_token = "QHd70tOqxsp2sDcAz505QKlxWKq1dXnt&"
+        # api_key = "t0zjktzp454kxkzt"
+        # api_secret = "aki7m034o2ud5swopbw0g88muoq0ifjt"
+        # request_token = "9dHgm1XuAA5MUHu4NsB16gH1TR0GJZl1"
 
-        kite = KiteConnect(api_key=api_key)
+        # kite = KiteConnect(api_key=api_key)
 
         try:
-            data = kite.generate_session(request_token, api_secret=api_secret)
-            access_token = data["access_token"]
-            kite.set_access_token(access_token)
+        #     data = kite.generate_session(request_token, api_secret=api_secret)
+        #     access_token = data["access_token"]
+        #     kite.set_access_token(access_token)
 
             # user_profile = kite.profile()
             # self.stdout.write("User Profile Information:")
@@ -135,9 +136,9 @@ class Command(BaseCommand):
             #             'exchange': row['exchange']
             #         })
             #  ===================================== end here ================================================
-            api_key = "t0zjktzp454kxkzt"
-            api_secret = "aki7m034o2ud5swopbw0g88muoq0ifjt"
-            request_token = "QHd70tOqxsp2sDcAz505QKlxWKq1dXnt"  # Replace with new one daily
+            api_key = "doieti8s40hlpp6l"
+            api_secret = "ijm22wvh5ks2k8m1c72psg17drfj4s29"
+            request_token = "EK1qMdcb6tQfq3fXc5pDKiO4v40BSzCy"  # Replace with new one daily
 
             kite = KiteConnect(api_key=api_key)
 
@@ -146,37 +147,42 @@ class Command(BaseCommand):
             print(access_token,"=-=-=-=-:access_token")
             kite.set_access_token(access_token)
 
-            # Step 2: Prepare instruments to fetch LTP for
-            instruments = ["NSE:INFY", "BSE:SENSEX", "NSE:NIFTY 50"]
-            params = [("i", i) for i in instruments]
+            KiteToken.objects.create(
+                    access_token=access_token,
+                    request_token=request_token,
+                )
 
-            # Step 3: Prepare API headers with access token
-            headers = {
-                "X-Kite-Version": "3",
-                "Authorization": f"token {api_key}:{access_token}"
-            }
+            # # Step 2: Prepare instruments to fetch LTP for
+            # instruments = ["NSE:INFY", "BSE:SENSEX", "NSE:NIFTY 50"]
+            # params = [("i", i) for i in instruments]
 
-            # Step 4: Make the LTP API call
-            response = requests.get("https://api.kite.trade/quote/ltp", headers=headers, params=params)
-            data = response.json()
+            # # Step 3: Prepare API headers with access token
+            # headers = {
+            #     "X-Kite-Version": "3",
+            #     "Authorization": f"token {api_key}:{access_token}"
+            # }
 
-            # Step 5: Handle response
-            if data.get("status") == "success":
-                with open("ltp_data.csv", mode="w", newline="") as csvfile:
-                    fieldnames = ["instrument", "instrument_token", "last_price"]
-                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                    writer.writeheader()
+            # # Step 4: Make the LTP API call
+            # response = requests.get("https://api.kite.trade/quote/ltp", headers=headers, params=params)
+            # data = response.json()
 
-                    for instrument, details in data["data"].items():
-                        writer.writerow({
-                            "instrument": instrument,
-                            "instrument_token": details["instrument_token"],
-                            "last_price": details["last_price"]
-                        })
+            # # Step 5: Handle response
+            # if data.get("status") == "success":
+            #     with open("ltp_data.csv", mode="w", newline="") as csvfile:
+            #         fieldnames = ["instrument", "instrument_token", "last_price"]
+            #         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            #         writer.writeheader()
 
-                self.stdout.write(self.style.SUCCESS("✅ LTP data saved to ltp_data.csv"))
-            else:
-                self.stderr.write(f"❌ Failed to fetch LTP: {data}")
+            #         for instrument, details in data["data"].items():
+            #             writer.writerow({
+            #                 "instrument": instrument,
+            #                 "instrument_token": details["instrument_token"],
+            #                 "last_price": details["last_price"]
+            #             })
+
+            #     self.stdout.write(self.style.SUCCESS("✅ LTP data saved to ltp_data.csv"))
+            # else:
+            #     self.stderr.write(f"❌ Failed to fetch LTP: {data}")
         except Exception as e:
             self.stderr.write(f"Error: {e}")
 
