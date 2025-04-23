@@ -1,51 +1,101 @@
-from kiteconnect import KiteConnect
-# for access token
-# https://kite.zerodha.com/connect/login?v=3&api_key=xxx
-
-
-
+import csv
+import requests
+from datetime import datetime, timedelta
 from django.core.management.base import BaseCommand
 from kiteconnect import KiteConnect
-import requests
-import csv
-from app.models import KiteToken
+from app.models import InstrumentDetails, KiteToken
+import time
+
+
 class Command(BaseCommand):
-    help = "Fetch user profile and balance from Zerodha Kite"
+    help = "Import instruments and update historical OHLC data"
 
     def handle(self, *args, **kwargs):
+        api_key = "doieti8s40hlpp6l"
+        token = KiteToken.objects.latest('created_at')
+        kite = KiteConnect(api_key=api_key)
+        kite.set_access_token(token.access_token)
+
+        headers = {
+            'X-Kite-Version': '3',
+            'Authorization': f'token {api_key}:{token.access_token}'
+        }
+
+        # Step 1: Download instruments list
+        self.stdout.write("📥 Fetching instrument list...")
+        response = requests.get('https://api.kite.trade/instruments', headers=headers)
+        response.raise_for_status()
+
+        lines = response.text.splitlines()
+        reader = csv.DictReader(lines)
+
+        count = 0
+        for row in reader:
+            segment = row["segment"]
+
+            if segment not in ["NSE", "BSE", "NFO", "INDICES"]:
+                continue  # Skip irrelevant instruments
+
+            try:
+                obj, created = InstrumentDetails.objects.update_or_create(
+                    instrument_token=row["instrument_token"],
+                    defaults={
+                        "exchange_token": row["exchange_token"],
+                        "tradingsymbol": row["tradingsymbol"],
+                        "name": row["name"],
+                        "last_price": float(row["last_price"]),
+                        "expiry": datetime.strptime(row["expiry"], "%Y-%m-%d").date() if row["expiry"] else None,
+                        "strike": float(row["strike"]),
+                        "tick_size": float(row["tick_size"]),
+                        "lot_size": int(row["lot_size"]),
+                        "instrument_type": row["instrument_type"],
+                        "segment": row["segment"],
+                        "exchange": row["exchange"],
+                    }
+                )
+
+                status = "🆕 Created" if created else "♻️ Updated"
+                self.stdout.write(f"{status}: {obj.tradingsymbol}")
+                print('=====================obj',obj)
+                self.update_historical_data(obj, headers)
+                count += 1
+
+                # ⚠️ Respect Kite's rate limits (3/sec)
+                time.sleep(0.35)
+
+            except Exception as e:
+                self.stderr.write(f"❌ Error processing {row['tradingsymbol']}: {str(e)}")
+
+        self.stdout.write(f"✅ Done. Total instruments processed: {count}")
+
+    def update_historical_data(self, instrument_obj, headers):
+        from_day = "2022-01-01"
+        to_day = "2025-04-22"
+        from_time = f"{from_day}"
+        to_time = f"{to_day}"
+
+        url = f"https://api.kite.trade/instruments/historical/{instrument_obj.instrument_token}/day"
+        params = {"from": from_time, "to": to_time}
+
         try:
-            api_key = "doieti8s40hlpp6l"
-            token = KiteToken.objects.latest('created_at')  # Get the most recent token
-            
-            instruments = ["NSE:INFY", "BSE:SENSEX", "NSE:NIFTY 50"]
-            params = [("i", i) for i in instruments]
+            resp = requests.get(url, headers=headers, params=params)
+            if resp.status_code != 200:
+                self.stderr.write(f"❌ Failed historical for {instrument_obj.tradingsymbol}")
+                return
 
-            # Step 3: Prepare API headers with access token
-            headers = {
-                "X-Kite-Version": "3",
-                "Authorization": f"token {api_key}:{token.access_token}"
-            }
-
-            # Step 4: Make the LTP API call
-            response = requests.get("https://api.kite.trade/quote/ltp", headers=headers, params=params)
-            data = response.json()
-
-            # Step 5: Handle response
-            if data.get("status") == "success":
-                with open("ltp_data.csv", mode="w", newline="") as csvfile:
-                    fieldnames = ["instrument", "instrument_token", "last_price"]
-                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                    writer.writeheader()
-
-                    for instrument, details in data["data"].items():
-                        writer.writerow({
-                            "instrument": instrument,
-                            "instrument_token": details["instrument_token"],
-                            "last_price": details["last_price"]
-                        })
-
-                self.stdout.write(self.style.SUCCESS("✅ LTP data saved to ltp_data.csv"))
+            candles = resp.json().get("data", {}).get("candles", [])
+            if candles:
+                ts, o, h, l, c, v = candles[-1]  # End-of-day candle
+                instrument_obj.open = o
+                instrument_obj.high = h
+                instrument_obj.low = l
+                instrument_obj.close = c
+                instrument_obj.timestamp = ts
+                instrument_obj.volume = v
+                instrument_obj.save()
+                self.stdout.write(f"📊 EOD updated: {instrument_obj.tradingsymbol}")
             else:
-                self.stderr.write(f"❌ Failed to fetch LTP: {data}")
+                self.stdout.write(f"ℹ️ No candles: {instrument_obj.tradingsymbol}")
+
         except Exception as e:
-            self.stderr.write(f"Error: {e}")
+            self.stderr.write(f"🚨 Error fetching historical for {instrument_obj.tradingsymbol}: {str(e)}")

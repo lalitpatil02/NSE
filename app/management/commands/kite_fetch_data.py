@@ -16,14 +16,38 @@ class Command(BaseCommand):
         try:
             api_key = "doieti8s40hlpp6l"
             token = KiteToken.objects.latest('created_at')  # Get the most recent token
-            # kite = KiteConnect(api_key=api_key)
-            # kite.set_access_token(token.access_token)
+            kite = KiteConnect(api_key=api_key)
+            kite.set_access_token(token.access_token)
             # ======================================== working code  ===============================================
-            # headers = {
-            #     'X-Kite-Version': '3',
-            #     'Authorization': f'token {api_key}:{token.access_token}'
-            # }
+            headers = {
+                'X-Kite-Version': '3',
+                'Authorization': f'token {api_key}:{token.access_token}'
+            }
+            instrument_token = 5261057  # Example token
+            interval = "day"
+            from_time = "2025-04-23 09:15:00"
+            to_time = "2025-04-23 09:20:00"
 
+            url = f"https://api.kite.trade/instruments/historical/{instrument_token}/{interval}"
+            params = {
+                "from": from_time,
+                "to": to_time,
+            }
+
+            headers = {
+                "X-Kite-Version": "3",
+                "Authorization": f"token {api_key}:{token.access_token}"
+            }
+
+            response = requests.get(url, headers=headers, params=params)
+
+            if response.status_code == 200:
+                data = response.json()
+                print("✅ Historical Data:",data)
+                for candle in data.get("data", {}).get("candles", []):
+                    print(candle)
+            else:
+                print(f"❌ Error: {response.status_code} - {response.text}")
             # # ✅ Download instruments
             # response = requests.get('https://api.kite.trade/instruments', headers=headers)
             # response.raise_for_status()
@@ -45,35 +69,35 @@ class Command(BaseCommand):
             #         })
             #  ===================================== end here ================================================
             # Step 2: Prepare instruments to fetch LTP for
-            instruments = ["NSE:INFY", "BSE:SENSEX", "NSE:NIFTY 50"]
-            params = [("i", i) for i in instruments]
+            # instruments = ["NSE:INFY", "BSE:SENSEX", "NSE:NIFTY 50"]
+            # params = [("i", i) for i in instruments]
 
-            # Step 3: Prepare API headers with access token
-            headers = {
-                "X-Kite-Version": "3",
-                "Authorization": f"token {api_key}:{token.access_token}"
-            }
+            # # Step 3: Prepare API headers with access token
+            # headers = {
+            #     "X-Kite-Version": "3",
+            #     "Authorization": f"token {api_key}:{token.access_token}"
+            # }
 
-            # Step 4: Make the LTP API call
-            response = requests.get("https://api.kite.trade/quote/ltp", headers=headers, params=params)
-            data = response.json()
+            # # Step 4: Make the LTP API call
+            # response = requests.get("https://api.kite.trade/quote/ltp", headers=headers, params=params)
+            # data = response.json()
 
-            # Step 5: Handle response
-            if data.get("status") == "success":
-                with open("ltp_data.csv", mode="w", newline="") as csvfile:
-                    fieldnames = ["instrument", "instrument_token", "last_price"]
-                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-                    writer.writeheader()
+            # # Step 5: Handle response
+            # if data.get("status") == "success":
+            #     with open("ltp_data.csv", mode="w", newline="") as csvfile:
+            #         fieldnames = ["instrument", "instrument_token", "last_price"]
+            #         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            #         writer.writeheader()
 
-                    for instrument, details in data["data"].items():
-                        writer.writerow({
-                            "instrument": instrument,
-                            "instrument_token": details["instrument_token"],
-                            "last_price": details["last_price"]
-                        })
+            #         for instrument, details in data["data"].items():
+            #             writer.writerow({
+            #                 "instrument": instrument,
+            #                 "instrument_token": details["instrument_token"],
+            #                 "last_price": details["last_price"]
+            #             })
 
-                self.stdout.write(self.style.SUCCESS("✅ LTP data saved to ltp_data.csv"))
-            else:
-                self.stderr.write(f"❌ Failed to fetch LTP: {data}")
+            #     self.stdout.write(self.style.SUCCESS("✅ LTP data saved to ltp_data.csv"))
+            # else:
+            #     self.stderr.write(f"❌ Failed to fetch LTP: {data}")
         except Exception as e:
             self.stderr.write(f"Error: {e}")
