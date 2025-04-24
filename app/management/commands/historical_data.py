@@ -28,12 +28,21 @@ class Command(BaseCommand):
 
         lines = response.text.splitlines()
         reader = csv.DictReader(lines)
+        # Step 2: Prepare CSV file to save instrument tokens
+        csv_file_path = "instrument_tokens.csv"
+        csv_file = open(csv_file_path, mode="w", newline="")
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow([
+            "instrument_token", "exchange_token", "tradingsymbol", "name", "last_price", "expiry", 
+            "strike", "tick_size", "lot_size", "instrument_type", "segment", "exchange"
+        ])  # Header
 
         count = 0
         for row in reader:
             segment = row["segment"]
 
             if segment not in ["NSE", "BSE", "NFO", "INDICES"]:
+            # if row["segment"] != "NSE":
                 continue  # Skip irrelevant instruments
 
             try:
@@ -53,6 +62,20 @@ class Command(BaseCommand):
                         "exchange": row["exchange"],
                     }
                 )
+                csv_writer.writerow([
+                    row["instrument_token"],
+                    row["exchange_token"],
+                    row["tradingsymbol"],
+                    row["name"],
+                    row["last_price"],
+                    row["expiry"],
+                    row["strike"],
+                    row["tick_size"],
+                    row["lot_size"],
+                    row["instrument_type"],
+                    row["segment"],
+                    row["exchange"],
+                ])
 
                 status = "🆕 Created" if created else "♻️ Updated"
                 self.stdout.write(f"{status}: {obj.tradingsymbol}")
@@ -60,16 +83,16 @@ class Command(BaseCommand):
                 self.update_historical_data(obj, headers)
                 count += 1
 
-                # ⚠️ Respect Kite's rate limits (3/sec)
+                # Respect Kite's rate limits (3/sec)
                 time.sleep(0.35)
 
             except Exception as e:
                 self.stderr.write(f"❌ Error processing {row['tradingsymbol']}: {str(e)}")
-
+        csv_file.close()
         self.stdout.write(f"✅ Done. Total instruments processed: {count}")
 
     def update_historical_data(self, instrument_obj, headers):
-        from_day = "2022-01-01"
+        from_day = "2025-04-21"
         to_day = "2025-04-22"
         from_time = f"{from_day}"
         to_time = f"{to_day}"

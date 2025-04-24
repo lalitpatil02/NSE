@@ -23,10 +23,10 @@ class Command(BaseCommand):
                 'X-Kite-Version': '3',
                 'Authorization': f'token {api_key}:{token.access_token}'
             }
-            instrument_token = 5261057  # Example token
+            instrument_token = 186537988  # Example token
             interval = "day"
-            from_time = "2025-04-23 09:15:00"
-            to_time = "2025-04-23 09:20:00"
+            from_time = "2025-04-21"
+            to_time = "2025-04-22"
 
             url = f"https://api.kite.trade/instruments/historical/{instrument_token}/{interval}"
             params = {

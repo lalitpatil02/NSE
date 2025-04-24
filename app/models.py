@@ -61,3 +61,5 @@ class InstrumentDetails(models.Model):
     interval = models.CharField(max_length=200, null=True, blank=True)
     timestamp = models.DateTimeField(null=True, blank=True)
     volume = models.BigIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
