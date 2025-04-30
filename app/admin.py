@@ -1,14 +1,13 @@
 from django.contrib import admin
+from .models import InstrumentDetails, HistoricalOHLC
 
-# Register your models here.
-from .models import CorporateFiling, KiteToken, InstrumentDetails
+@admin.register(HistoricalOHLC)
+class HistoricalOHLCAdmin(admin.ModelAdmin):
+    list_display = ("instrument", "timestamp", "open", "high", "low", "close", "volume", "interval")
+    list_filter = ("interval", "timestamp")
+    search_fields = ("instrument__tradingsymbol",)
 
-admin.site.register(CorporateFiling)
-admin.site.register(KiteToken)
-
-
-class Instrument_DetailsAdmin(admin.ModelAdmin):
-    list_display = ['id','instrument_token', 'exchange_token', 'tradingsymbol', 'name', 'segment', 'open', 'interval', 'timestamp']
-    list_filter = ['segment','exchange']
-    search_fields = ['id','name','instrument_token']
-admin.site.register(InstrumentDetails, Instrument_DetailsAdmin)
+@admin.register(InstrumentDetails)
+class InstrumentDetailsAdmin(admin.ModelAdmin):
+    list_display = ("tradingsymbol", "exchange", "timestamp")
+    search_fields = ("tradingsymbol",)

@@ -54,12 +54,25 @@ class InstrumentDetails(models.Model):
     instrument_type = models.CharField(max_length=200)
     segment = models.CharField(max_length=200)
     exchange = models.CharField(max_length=200)
-    open = models.FloatField(null=True, blank=True)
-    high = models.FloatField(null=True, blank=True)
-    low = models.FloatField(null=True, blank=True)
-    close = models.FloatField(null=True, blank=True)
-    interval = models.CharField(max_length=200, null=True, blank=True)
     timestamp = models.DateTimeField(null=True, blank=True)
     volume = models.BigIntegerField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+
+
+class HistoricalOHLC(models.Model):
+    instrument = models.ForeignKey(InstrumentDetails, on_delete=models.CASCADE)
+    timestamp = models.DateTimeField()
+    open = models.FloatField()
+    high = models.FloatField()
+    low = models.FloatField()
+    close = models.FloatField()
+    volume = models.BigIntegerField()
+    interval = models.CharField(max_length=50, default="day")  # can also be '5minute', '15minute', etc.
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ("instrument", "timestamp", "interval")
+        ordering = ["-timestamp"]
