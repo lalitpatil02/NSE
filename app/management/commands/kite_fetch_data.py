@@ -23,7 +23,7 @@ class Command(BaseCommand):
                 'X-Kite-Version': '3',
                 'Authorization': f'token {api_key}:{token.access_token}'
             }
-            instrument_token = 186537988  # Example token
+            instrument_token = 50959108  # Example token
             interval = "day"
             from_time = "2025-04-21"
             to_time = "2025-04-22"

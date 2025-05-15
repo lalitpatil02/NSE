@@ -4,6 +4,7 @@ from kiteconnect import KiteConnect
 from datetime import datetime, timedelta
 import pandas as pd
 import time
+import csv
 
 # Replace these with your own credentials
 api_key = "doieti8s40hlpp6l"
@@ -11,8 +12,18 @@ token = KiteToken.objects.latest('created_at')
 kite = KiteConnect(api_key=api_key)
 kite.set_access_token(token.access_token)
 
-# Instrument tokens you want live data for (example: RELIANCE)
-tokens = [408065]  # You can add more tokens here
+tokens = []
+with open("filtered_instrument_tokens.csv", newline='') as csvfile:
+    reader = csv.DictReader(csvfile)
+    for i, row in enumerate(reader):
+        if i >= 3000:
+            break
+        try:
+            tokens.append(int(row["instrument_token"]))
+        except ValueError:
+            pass
+
+print(f"✅ Loaded {len(tokens)} tokens for streaming.")
 
 # Create KiteTicker instance
 kws = KiteTicker(api_key, token.access_token)

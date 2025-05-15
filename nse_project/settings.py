@@ -38,14 +38,24 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'admin_black.apps.AdminBlackConfig',
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",
     "app",
 ]
+
+# Add this at the bottom of settings.py
+ADMIN_BLACK_THEME = {
+    'name': 'Black',
+    'version': '1.0.0',
+    'css': 'admin_black/css/theme.css',
+    'js': 'admin_black/js/theme.js',
+}
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -59,10 +69,12 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "nse_project.urls"
 
+HOME_TEMPLATES = os.path.join(BASE_DIR, 'templates')
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [HOME_TEMPLATES],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -137,6 +149,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field

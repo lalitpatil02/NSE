@@ -44,7 +44,7 @@ class KiteToken(models.Model):
 class InstrumentDetails(models.Model):
     instrument_token = models.BigIntegerField()
     exchange_token = models.BigIntegerField()
-    tradingsymbol = models.CharField(max_length=200)
+    tradingsymbol = models.CharField(max_length=200, unique=True)
     name = models.CharField(max_length=200)
     last_price = models.FloatField()
     expiry = models.DateField(null=True, blank=True)
@@ -59,6 +59,15 @@ class InstrumentDetails(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        ordering = ['-last_price']
+        indexes = [
+            models.Index(fields=['tradingsymbol']),
+            models.Index(fields=['last_price']),
+        ]
+
+    def __str__(self):
+        return f"{self.tradingsymbol} - {self.name}"
 
 
 class HistoricalOHLC(models.Model):

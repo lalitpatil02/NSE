@@ -1,0 +1,14 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="alert alert-danger" role="alert">
+        <h4 class="alert-heading">Error!</h4>
+        <p>{{ message }}</p>
+        <hr>
+        <p class="mb-0">
+            <a href="{% url 'instrument_list' %}" class="btn btn-primary">Return to Instruments List</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

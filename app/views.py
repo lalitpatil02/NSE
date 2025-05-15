@@ -1,7 +1,11 @@
 from django.shortcuts import render
 from django.db.models import Q
-from .models import CorporateFiling
+from .models import CorporateFiling, InstrumentDetails, HistoricalOHLC
 from datetime import datetime
+from django.core.paginator import Paginator
+import pandas as pd
+import numpy as np
+from django.utils import timezone
 
 def index(request):
     # Get all filings ordered by filing date
@@ -49,3 +53,239 @@ def index(request):
     }
     
     return render(request, 'app/index.html', context)
+
+
+from django.shortcuts import render
+from django.db.models import Q
+from .models import InstrumentDetails, HistoricalOHLC
+
+def instrument_list(request):
+    # Get filter parameters
+    search_query = request.GET.get('search', '')
+    instrument_type = request.GET.get('instrument_type', '')
+    segment = request.GET.get('segment', '')
+    
+    # Create a new queryset each time
+    base_queryset = InstrumentDetails.objects.all()
+    
+    # Apply filters to the base queryset
+    if search_query:
+        base_queryset = base_queryset.filter(
+            Q(tradingsymbol__icontains=search_query) |
+            Q(name__icontains=search_query)
+        )
+    
+    if instrument_type:
+        base_queryset = base_queryset.filter(instrument_type=instrument_type)
+    
+    if segment:
+        base_queryset = base_queryset.filter(segment=segment)
+    
+    # Get unique values for filters
+    instrument_types = InstrumentDetails.objects.values_list('instrument_type', flat=True).distinct()
+    segments = InstrumentDetails.objects.values_list('segment', flat=True).distinct()
+    
+    # Pagination
+    paginator = Paginator(base_queryset, 25)  # Show 25 items per page
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'page_obj': page_obj,
+        'instrument_types': instrument_types,
+        'segments': segments,
+        'current_search': search_query,
+        'current_instrument_type': instrument_type,
+        'current_segment': segment,
+    }
+    
+    return render(request, 'app/instrument_list.html', context)
+
+def instrument_detail(request, instrument_id):
+    try:
+        instrument = InstrumentDetails.objects.get(id=instrument_id)
+        # Get historical data for the last 30 days
+        historical_data = HistoricalOHLC.objects.filter(
+            instrument=instrument
+        ).order_by('-timestamp')[:30]
+        
+        # Convert historical data to list of dictionaries for the chart
+        historical_data_list = []
+        for data in historical_data:
+            historical_data_list.append({
+                'timestamp': data.timestamp.strftime('%Y-%m-%d %H:%M'),
+                'open': float(data.open),
+                'high': float(data.high),
+                'low': float(data.low),
+                'close': float(data.close),
+                'volume': int(data.volume),
+                'interval': data.interval
+            })
+        
+        context = {
+            'instrument': instrument,
+            'historical_data': historical_data,
+            'historical_data_json': historical_data_list,  # For the chart
+        }
+        return render(request, 'app/instrument_detail.html', context)
+    except InstrumentDetails.DoesNotExist:
+        # Handle case where instrument is not found
+        return render(request, 'app/error.html', {'message': 'Instrument not found'})
+
+def process_stock_data(data_text):
+    # Split the text into lines and remove empty lines
+    lines = [line.strip() for line in data_text.strip().split('\n') if line.strip()]
+    
+    # Get headers from the first line
+    headers = lines[0].split('\t')
+    
+    # Process data lines
+    data = []
+    for line in lines[1:]:
+        values = line.split('\t')
+        if len(values) == len(headers):
+            # Create a dictionary with proper field names
+            stock_data = {
+                'Exc': values[0],
+                'Segment': values[1],
+                'name': values[2],
+                'Exchange': values[3],
+                'SECURITY_NAME': values[4],
+                'SYMBOL': values[5],
+                'LOT_SIZE': values[6],
+                'price': float(values[7]) if values[7] else None,
+                'priceopen': float(values[8]) if values[8] else None,
+                'high': float(values[9]) if values[9] else None,
+                'low': float(values[10]) if values[10] else None,
+                'changepct': float(values[11]) if values[11] else None,
+                'closeyest': float(values[12]) if values[12] else None,
+                'Volume': int(values[13].replace(',', '')) if values[13] else None,
+                'marketcap': float(values[14].replace(',', '')) if values[14] else None,
+                'high52': float(values[15]) if values[15] else None,
+                'low52': float(values[16]) if values[16] else None,
+                'PRICE_CHANGE_5D': float(values[17]) if values[17] else None,
+                'PRICE_CHANGE_10D': float(values[18]) if values[18] else None,
+                'PRICE_CHANGE_20D': float(values[19]) if values[19] else None,
+                'PRICE_CHANGE_30D': float(values[20]) if values[20] else None,
+                'PRICE_CHANGE_60D': float(values[21]) if values[21] else None,
+                'PRICE_CHANGE_90D': float(values[22]) if values[22] else None,
+                'PRICE_CHANGE_6M': float(values[23]) if values[23] else None,
+                'PRICE_CHANGE_1Y': float(values[24]) if values[24] else None,
+                'PRICE_CHANGE_2Y': float(values[25]) if values[25] else None,
+                'PRICE_CHANGE_3Y': float(values[26]) if values[26] else None,
+                'PRICE_CHANGE_5Y': float(values[27]) if values[27] else None,
+                'close': float(values[28]) if values[28] else None,
+                'Outstanding_shares': int(values[29].replace(',', '')) if values[29] else None
+            }
+            data.append(stock_data)
+    
+    return pd.DataFrame(data)
+
+def stock_market_view(request):
+    try:
+        # Get filter parameters
+        search_query = request.GET.get('search', '')
+        min_market_cap = request.GET.get('min_market_cap')
+        max_market_cap = request.GET.get('max_market_cap')
+        sort_by = request.GET.get('sort_by', '-instrument_token')
+        segment = request.GET.get('segment', '')
+        
+        # Start with all stocks
+        stocks = InstrumentDetails.objects.all()
+        
+        # Apply filters
+        if search_query:
+            stocks = stocks.filter(
+                Q(tradingsymbol__icontains=search_query) |
+                Q(name__icontains=search_query)
+            )
+        
+        if segment:
+            stocks = stocks.filter(segment=segment)
+        
+        if min_market_cap:
+            try:
+                min_market_cap = float(min_market_cap)
+                stocks = stocks.filter(instrument_token__gte=min_market_cap)
+            except ValueError:
+                pass
+        
+        if max_market_cap:
+            try:
+                max_market_cap = float(max_market_cap)
+                stocks = stocks.filter(instrument_token__lte=max_market_cap)
+            except ValueError:
+                pass
+        
+        # Apply sorting
+        if sort_by:
+            stocks = stocks.order_by(sort_by)
+        
+        # Get unique segments for the filter dropdown
+        segments = InstrumentDetails.objects.values_list('segment', flat=True).distinct().order_by('segment')
+        
+        # Pagination
+        paginator = Paginator(stocks, 25)  # Show 25 stocks per page
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+        
+        context = {
+            'page_obj': page_obj,
+            'current_search': search_query,
+            'current_min_market_cap': min_market_cap,
+            'current_max_market_cap': max_market_cap,
+            'current_sort': sort_by,
+            'current_segment': segment,
+            'segments': segments,
+        }
+        
+        return render(request, 'app/stock_market.html', context)
+    except Exception as e:
+        return render(request, 'app/error.html', {'message': str(e)})
+
+def stock_detail_view(request, symbol):
+    try:
+        stock = InstrumentDetails.objects.filter(tradingsymbol=symbol).order_by('-timestamp').first()
+        if not stock:
+            return render(request, 'app/error.html', {'message': f'Stock with symbol {symbol} not found'})
+
+        # Get the latest OHLC data for this instrument
+        latest_ohlc = HistoricalOHLC.objects.filter(instrument=stock).order_by('-timestamp').first()
+
+        stock_data = {
+            'SYMBOL': stock.tradingsymbol,
+            'SECURITY_NAME': stock.name,
+            'price': stock.last_price,
+            'Volume': latest_ohlc.volume if latest_ohlc else stock.volume,
+            'marketcap': stock.instrument_token,
+            'high52': stock.strike,
+            'low52': stock.tick_size,
+            'Segment': stock.segment,
+            'name': stock.instrument_type,
+            'Exchange': stock.exchange,
+            'LOT_SIZE': stock.lot_size,
+            'changepct': 0,  # Calculate if needed
+            'priceopen': latest_ohlc.open if latest_ohlc else None,
+            'high': latest_ohlc.high if latest_ohlc else None,
+            'low': latest_ohlc.low if latest_ohlc else None,
+            'closeyest': latest_ohlc.close if latest_ohlc else None,
+            # Historical price changes are not available in the model
+            'PRICE_CHANGE_5D': None,
+            'PRICE_CHANGE_10D': None,
+            'PRICE_CHANGE_20D': None,
+            'PRICE_CHANGE_30D': None,
+            'PRICE_CHANGE_60D': None,
+            'PRICE_CHANGE_90D': None,
+            'PRICE_CHANGE_6M': None,
+            'PRICE_CHANGE_1Y': None,
+            'PRICE_CHANGE_2Y': None,
+            'PRICE_CHANGE_3Y': None,
+            'PRICE_CHANGE_5Y': None
+        }
+
+        context = {
+            'stock': stock_data,
+        }
+        return render(request, 'app/stock_detail.html', context)
+    except Exception as e:
+        return render(request, 'app/error.html', {'message': str(e)})

@@ -29,63 +29,66 @@ class Command(BaseCommand):
         reader = csv.DictReader(lines)
 
         csv_file_path = "instrument_tokens.csv"
-        csv_file = open(csv_file_path, mode="w", newline="")
-        csv_writer = csv.writer(csv_file)
-        csv_writer.writerow([
-            "instrument_token", "exchange_token", "tradingsymbol", "name", "last_price", "expiry",
-            "strike", "tick_size", "lot_size", "instrument_type", "segment", "exchange"
-        ])
-
         timing_file_path = "historical_data_timing.csv"
-        timing_file = open(timing_file_path, mode="w", newline="")
-        timing_writer = csv.writer(timing_file)
-        timing_writer.writerow(["tradingsymbol", "instrument_token", "duration_secs", "error"])
 
-        count = 0
-        total_start_time = time.time()
+        with open(csv_file_path, mode="w", newline="") as csv_file, open(timing_file_path, mode="w", newline="") as timing_file:
+            csv_writer = csv.writer(csv_file)
+            csv_writer.writerow([
+                "instrument_token", "exchange_token", "tradingsymbol", "name", "last_price", "expiry",
+                "strike", "tick_size", "lot_size", "instrument_type", "segment", "exchange"
+            ])
 
-        for row in reader:
-            segment = row["segment"]
-            if segment not in ["NSE", "BSE", "NFO", "INDICES"]:
-                continue
+            timing_writer = csv.writer(timing_file)
+            timing_writer.writerow(["tradingsymbol", "instrument_token", "duration_secs", "error"])
 
-            try:
-                obj, created = InstrumentDetails.objects.update_or_create(
-                    instrument_token=row["instrument_token"],
-                    defaults={
-                        "exchange_token": row["exchange_token"],
-                        "tradingsymbol": row["tradingsymbol"],
-                        "name": row["name"],
-                        "last_price": float(row["last_price"]),
-                        "expiry": datetime.strptime(row["expiry"], "%Y-%m-%d").date() if row["expiry"] else None,
-                        "strike": float(row["strike"]),
-                        "tick_size": float(row["tick_size"]),
-                        "lot_size": int(row["lot_size"]),
-                        "instrument_type": row["instrument_type"],
-                        "segment": row["segment"],
-                        "exchange": row["exchange"],
-                    }
-                )
-                csv_writer.writerow([
-                    row["instrument_token"], row["exchange_token"], row["tradingsymbol"],
-                    row["name"], row["last_price"], row["expiry"], row["strike"],
-                    row["tick_size"], row["lot_size"], row["instrument_type"],
-                    row["segment"], row["exchange"]
-                ])
+            count = 0
+            total_start_time = time.time()
 
-                status = "🆕 Created" if created else "♻️ Updated"
-                self.stdout.write(f"{status}: {obj.tradingsymbol}")
+            for row in reader:
+                segment = row["segment"]
+                instrument_type = row["instrument_type"]
 
-                self.update_historical_data(obj, timing_writer, headers)
-                count += 1
+                # Filter only tradable instruments, skip NAVs
+                if segment not in ["NSE", "BSE", "NFO", "INDICES"]:
+                    continue
+                if instrument_type.endswith("NAV"):
+                    self.stdout.write(f"⏭️ Skipping NAV instrument: {row['tradingsymbol']}")
+                    continue
 
-                time.sleep(0.35)
+                try:
+                    obj, created = InstrumentDetails.objects.update_or_create(
+                        instrument_token=row["instrument_token"],
+                        defaults={
+                            "exchange_token": row["exchange_token"],
+                            "tradingsymbol": row["tradingsymbol"],
+                            "name": row["name"],
+                            "last_price": float(row["last_price"]),
+                            "expiry": datetime.strptime(row["expiry"], "%Y-%m-%d").date() if row["expiry"] else None,
+                            "strike": float(row["strike"]),
+                            "tick_size": float(row["tick_size"]),
+                            "lot_size": int(row["lot_size"]),
+                            "instrument_type": row["instrument_type"],
+                            "segment": row["segment"],
+                            "exchange": row["exchange"],
+                        }
+                    )
+                    csv_writer.writerow([
+                        row["instrument_token"], row["exchange_token"], row["tradingsymbol"],
+                        row["name"], row["last_price"], row["expiry"], row["strike"],
+                        row["tick_size"], row["lot_size"], row["instrument_type"],
+                        row["segment"], row["exchange"]
+                    ])
 
-            except Exception as e:
-                self.stderr.write(f"❌ Error processing {row['tradingsymbol']}: {str(e)}")
+                    status = "🆕 Created" if created else "♻️ Updated"
+                    self.stdout.write(f"{status}: {obj.tradingsymbol}")
 
-        csv_file.close()
-        timing_file.close()
+                    self.update_historical_data(obj, timing_writer, headers)
+                    count += 1
+
+                    time.sleep(0.35)
+
+                except Exception as e:
+                    self.stderr.write(f"❌ Error processing {row['tradingsymbol']}: {str(e)}")
 
         total_end_time = time.time()
         total_duration_seconds = int(total_end_time - total_start_time)
@@ -102,42 +105,60 @@ class Command(BaseCommand):
         self.stdout.write(f"🕒 Total time taken: {formatted_time} ({total_duration_seconds} seconds)")
 
     def update_historical_data(self, instrument_obj, timing_writer, headers):
-        to_day = "2025-04-29"
-        from_day = "2025-04-29"
-        start_time = time.time()
+        from_day = "2025-04-20"
+        to_day = "2025-04-30"
         interval_ = "day"
-
         url = f"https://api.kite.trade/instruments/historical/{instrument_obj.instrument_token}/{interval_}"
-        params = {"from": str(from_day), "to": str(to_day)}
+        start_time = time.time()
 
         try:
-            resp = requests.get(url, headers=headers, params=params)
-            if resp.status_code != 200:
-                self.stderr.write(f"❌ Failed historical for {instrument_obj.tradingsymbol}")
-                return
+            current_day = datetime.strptime(from_day, "%Y-%m-%d")
+            end_day = datetime.strptime(to_day, "%Y-%m-%d")
 
-            candles = resp.json().get("data", {}).get("candles", [])
+            while current_day <= end_day:
+                next_day = current_day + timedelta(days=1)
+                params = {
+                    "from": current_day.strftime("%Y-%m-%d"),
+                    "to": next_day.strftime("%Y-%m-%d")
+                }
+
+                MAX_RETRIES = 3
+                for attempt in range(MAX_RETRIES):
+                    try:
+                        resp = requests.get(url, headers=headers, params=params)
+                        resp.raise_for_status()
+                        break
+                    except requests.RequestException as e:
+                        if attempt == MAX_RETRIES - 1:
+                            raise
+                        time.sleep(1.5)
+
+                candles = resp.json().get("data", {}).get("candles", [])
+                for candle in candles:
+                    ts, o, h, l, c, v = candle
+                    timestamp = datetime.fromisoformat(ts)
+                    HistoricalOHLC.objects.update_or_create(
+                        instrument=instrument_obj,
+                        timestamp=timestamp,
+                        interval=interval_,
+                        defaults={
+                            "open": o,
+                            "high": h,
+                            "low": l,
+                            "close": c,
+                            "volume": v,
+                        }
+                    )
+
+                if candles:
+                    self.stdout.write(f"📊 {instrument_obj.tradingsymbol} {current_day.strftime('%Y-%m-%d')}: 1 OHLC entry saved")
+                else:
+                    self.stderr.write(f"⚠️ No data for {instrument_obj.tradingsymbol} on {current_day.strftime('%Y-%m-%d')}")
+
+                current_day = next_day
+                time.sleep(0.35)
+
             duration = time.time() - start_time
-
-            for candle in candles:
-                ts, o, h, l, c, v = candle
-                timestamp = datetime.fromisoformat(ts)
-                HistoricalOHLC.objects.update_or_create(
-                    instrument=instrument_obj,
-                    timestamp=timestamp,
-                    interval=interval_,
-                    defaults={
-                        "open": o,
-                        "high": h,
-                        "low": l,
-                        "close": c,
-                        "volume": v,
-                    }
-                )
-
-            if candles:
-                self.stdout.write(f"📊 {instrument_obj.tradingsymbol}: {len(candles)} OHLC entries saved")
-
             timing_writer.writerow([instrument_obj.tradingsymbol, instrument_obj.instrument_token, round(duration, 2), ""])
 
         except Exception as e:
