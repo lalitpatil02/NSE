@@ -112,77 +112,77 @@
             <div class="info-item">
                 <div class="info-label">Last 5 Days</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_5D > 0 %}price-up{% elif stock.PRICE_CHANGE_5D < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_5D|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_5D|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 10 Days</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_10D > 0 %}price-up{% elif stock.PRICE_CHANGE_10D < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_10D|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_10D|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 20 Days</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_20D > 0 %}price-up{% elif stock.PRICE_CHANGE_20D < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_20D|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_20D|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 30 Days</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_30D > 0 %}price-up{% elif stock.PRICE_CHANGE_30D < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_30D|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_30D|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 60 Days</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_60D > 0 %}price-up{% elif stock.PRICE_CHANGE_60D < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_60D|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_60D|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 90 Days</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_90D > 0 %}price-up{% elif stock.PRICE_CHANGE_90D < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_90D|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_90D|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 6 Months</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_6M > 0 %}price-up{% elif stock.PRICE_CHANGE_6M < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_6M|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_6M|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 1 Year</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_1Y > 0 %}price-up{% elif stock.PRICE_CHANGE_1Y < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_1Y|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_1Y|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 2 Years</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_2Y > 0 %}price-up{% elif stock.PRICE_CHANGE_2Y < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_2Y|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_2Y|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 3 Years</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_3Y > 0 %}price-up{% elif stock.PRICE_CHANGE_3Y < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_3Y|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_3Y|floatformat:2|default:"N/A" }}
                 </div>
             </div>
             
             <div class="info-item">
                 <div class="info-label">Last 5 Years</div>
                 <div class="info-value {% if stock.PRICE_CHANGE_5Y > 0 %}price-up{% elif stock.PRICE_CHANGE_5Y < 0 %}price-down{% endif %}">
-                    {{ stock.PRICE_CHANGE_5Y|default:"N/A" }}
+                    {{ stock.PRICE_CHANGE_5Y|floatformat:2|default:"N/A" }}
                 </div>
             </div>
         </div>

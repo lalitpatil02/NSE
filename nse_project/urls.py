@@ -17,7 +17,15 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 
+from app.management.commands.live_kite_data_api import live_stock_data_api
+
+from django.views.generic import RedirectView
+from django.urls import re_path
+
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("app/",include('app.urls'))
+    path("app/",include('app.urls')),
+    path('api/live/<str:symbol>/', live_stock_data_api, name='live_stock_data_api'),
+    re_path(r'^favicon\.ico$', RedirectView.as_view(url='/static/favicon.ico')),
+
 ]

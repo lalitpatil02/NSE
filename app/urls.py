@@ -9,4 +9,5 @@ urlpatterns = [
     path('instruments/<int:instrument_id>/', views.instrument_detail, name='instrument_detail'),
     path('stocks/', views.stock_market_view, name='stock_market'),
     path('stocks/<str:symbol>/', views.stock_detail_view, name='stock_detail'),
+
 ] 

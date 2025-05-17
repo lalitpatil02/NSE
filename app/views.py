@@ -6,6 +6,8 @@ from django.core.paginator import Paginator
 import pandas as pd
 import numpy as np
 from django.utils import timezone
+from datetime import timedelta
+from django.utils.timezone import now
 
 def index(request):
     # Get all filings ordered by filing date
@@ -181,67 +183,67 @@ def process_stock_data(data_text):
     
     return pd.DataFrame(data)
 
+import json
+from django.core.paginator import Paginator
+from django.shortcuts import render
+from django.db.models import Q
+from .models import InstrumentDetails
+
 def stock_market_view(request):
-    try:
-        # Get filter parameters
-        search_query = request.GET.get('search', '')
-        min_market_cap = request.GET.get('min_market_cap')
-        max_market_cap = request.GET.get('max_market_cap')
-        sort_by = request.GET.get('sort_by', '-instrument_token')
-        segment = request.GET.get('segment', '')
-        
-        # Start with all stocks
-        stocks = InstrumentDetails.objects.all()
-        
-        # Apply filters
-        if search_query:
-            stocks = stocks.filter(
-                Q(tradingsymbol__icontains=search_query) |
-                Q(name__icontains=search_query)
-            )
-        
-        if segment:
-            stocks = stocks.filter(segment=segment)
-        
-        if min_market_cap:
-            try:
-                min_market_cap = float(min_market_cap)
-                stocks = stocks.filter(instrument_token__gte=min_market_cap)
-            except ValueError:
-                pass
-        
-        if max_market_cap:
-            try:
-                max_market_cap = float(max_market_cap)
-                stocks = stocks.filter(instrument_token__lte=max_market_cap)
-            except ValueError:
-                pass
-        
-        # Apply sorting
-        if sort_by:
-            stocks = stocks.order_by(sort_by)
-        
-        # Get unique segments for the filter dropdown
-        segments = InstrumentDetails.objects.values_list('segment', flat=True).distinct().order_by('segment')
-        
-        # Pagination
-        paginator = Paginator(stocks, 25)  # Show 25 stocks per page
-        page_number = request.GET.get('page')
-        page_obj = paginator.get_page(page_number)
-        
-        context = {
-            'page_obj': page_obj,
-            'current_search': search_query,
-            'current_min_market_cap': min_market_cap,
-            'current_max_market_cap': max_market_cap,
-            'current_sort': sort_by,
-            'current_segment': segment,
-            'segments': segments,
-        }
-        
-        return render(request, 'app/stock_market.html', context)
-    except Exception as e:
-        return render(request, 'app/error.html', {'message': str(e)})
+    search_query = request.GET.get('search', '')
+    min_market_cap = request.GET.get('min_market_cap')
+    max_market_cap = request.GET.get('max_market_cap')
+    sort_by = request.GET.get('sort_by', '-instrument_token')
+    segment = request.GET.get('segment', '')
+
+    stocks = InstrumentDetails.objects.all()
+
+    if search_query:
+        stocks = stocks.filter(
+            Q(tradingsymbol__icontains=search_query) |
+            Q(name__icontains=search_query)
+        )
+
+    if segment:
+        stocks = stocks.filter(segment=segment)
+
+    if min_market_cap:
+        try:
+            stocks = stocks.filter(instrument_token__gte=float(min_market_cap))
+        except ValueError:
+            pass
+
+    if max_market_cap:
+        try:
+            stocks = stocks.filter(instrument_token__lte=float(max_market_cap))
+        except ValueError:
+            pass
+
+    if sort_by:
+        stocks = stocks.order_by(sort_by)
+
+    paginator = Paginator(stocks, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    segments = InstrumentDetails.objects.values_list('segment', flat=True).distinct().order_by('segment')
+
+    stock_symbols = json.dumps(list(stocks.values_list('tradingsymbol', flat=True)))
+
+
+    context = {
+        'page_obj': page_obj,
+        'current_search': search_query,
+        'current_min_market_cap': min_market_cap,
+        'current_max_market_cap': max_market_cap,
+        'current_sort': sort_by,
+        'current_segment': segment,
+        'segments': segments,
+        'stock_symbols': stock_symbols  # 👈 Pass this as a plain JSON string
+    }
+    return render(request, 'app/stock_market.html', context)
+
+
 
 def stock_detail_view(request, symbol):
     try:
@@ -249,8 +251,39 @@ def stock_detail_view(request, symbol):
         if not stock:
             return render(request, 'app/error.html', {'message': f'Stock with symbol {symbol} not found'})
 
-        # Get the latest OHLC data for this instrument
         latest_ohlc = HistoricalOHLC.objects.filter(instrument=stock).order_by('-timestamp').first()
+
+        def get_change(stock_obj, latest_ohlc_obj, days):
+            if not stock_obj or not latest_ohlc_obj:
+                return None
+
+            target_date = now().date() - timedelta(days=days)
+            buffer_date = now().date() - timedelta(days=days + 2)
+
+            past_ohlc = HistoricalOHLC.objects.filter(
+                instrument=stock_obj,
+                timestamp__date__lte=target_date,
+                timestamp__date__gte=buffer_date,
+                close__gt=0
+            ).order_by('-timestamp').first()
+
+            if past_ohlc and latest_ohlc_obj.close and past_ohlc.close:
+                try:
+                    change = ((latest_ohlc_obj.close - past_ohlc.close) / past_ohlc.close) * 100
+                    return round(change, 2)
+                except ZeroDivisionError:
+                    return None
+            return None
+
+        # 52W High & Low
+        one_year_ago = now() - timedelta(days=365)
+        high_52w = HistoricalOHLC.objects.filter(
+            instrument=stock, timestamp__gte=one_year_ago
+        ).order_by('-high').values_list('high', flat=True).first()
+
+        low_52w = HistoricalOHLC.objects.filter(
+            instrument=stock, timestamp__gte=one_year_ago
+        ).order_by('low').values_list('low', flat=True).first()
 
         stock_data = {
             'SYMBOL': stock.tradingsymbol,
@@ -258,34 +291,34 @@ def stock_detail_view(request, symbol):
             'price': stock.last_price,
             'Volume': latest_ohlc.volume if latest_ohlc else stock.volume,
             'marketcap': stock.instrument_token,
-            'high52': stock.strike,
-            'low52': stock.tick_size,
+            'high52': high_52w if high_52w is not None else 0.0,
+            'low52': low_52w if low_52w is not None else 0.0,
             'Segment': stock.segment,
             'name': stock.instrument_type,
             'Exchange': stock.exchange,
             'LOT_SIZE': stock.lot_size,
-            'changepct': 0,  # Calculate if needed
+            'changepct': get_change(stock, latest_ohlc, 1),
             'priceopen': latest_ohlc.open if latest_ohlc else None,
             'high': latest_ohlc.high if latest_ohlc else None,
             'low': latest_ohlc.low if latest_ohlc else None,
             'closeyest': latest_ohlc.close if latest_ohlc else None,
-            # Historical price changes are not available in the model
-            'PRICE_CHANGE_5D': None,
-            'PRICE_CHANGE_10D': None,
-            'PRICE_CHANGE_20D': None,
-            'PRICE_CHANGE_30D': None,
-            'PRICE_CHANGE_60D': None,
-            'PRICE_CHANGE_90D': None,
-            'PRICE_CHANGE_6M': None,
-            'PRICE_CHANGE_1Y': None,
-            'PRICE_CHANGE_2Y': None,
-            'PRICE_CHANGE_3Y': None,
-            'PRICE_CHANGE_5Y': None
+
+            # Historical percentage changes
+            'PRICE_CHANGE_5D': get_change(stock, latest_ohlc, 5),
+            'PRICE_CHANGE_10D': get_change(stock, latest_ohlc, 10),
+            'PRICE_CHANGE_20D': get_change(stock, latest_ohlc, 20),
+            'PRICE_CHANGE_30D': get_change(stock, latest_ohlc, 30),
+            'PRICE_CHANGE_60D': get_change(stock, latest_ohlc, 60),
+            'PRICE_CHANGE_90D': get_change(stock, latest_ohlc, 90),
+            'PRICE_CHANGE_6M': get_change(stock, latest_ohlc, 180),
+            'PRICE_CHANGE_1Y': get_change(stock, latest_ohlc, 365),
+            'PRICE_CHANGE_2Y': get_change(stock, latest_ohlc, 730),
+            'PRICE_CHANGE_3Y': get_change(stock, latest_ohlc, 1095),
+            'PRICE_CHANGE_5Y': get_change(stock, latest_ohlc, 1825),
         }
 
-        context = {
-            'stock': stock_data,
-        }
-        return render(request, 'app/stock_detail.html', context)
+        return render(request, 'app/stock_detail.html', {'stock': stock_data})
+
     except Exception as e:
         return render(request, 'app/error.html', {'message': str(e)})
+
