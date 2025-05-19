@@ -113,6 +113,12 @@
             $(`#volume-${symbol}`).text(volume);
             $(`#marketcap-${symbol}`).text(marketCap);
             $(`#change-${symbol}`).text(`${changePct}%`);
+    $(document).ready(function() {
+        $('.stock-table').DataTable({
+            "paging": true,  // Disable DataTables pagination since we're using Django's
+            "ordering": true,
+            "searching": true,  // Disable DataTables search since we're using Django's
+            "responsive": true
         });
     }
 

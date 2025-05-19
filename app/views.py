@@ -321,4 +321,3 @@ def stock_detail_view(request, symbol):
 
     except Exception as e:
         return render(request, 'app/error.html', {'message': str(e)})
-
