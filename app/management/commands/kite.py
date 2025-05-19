@@ -138,7 +138,7 @@ class Command(BaseCommand):
             #  ===================================== end here ================================================
             api_key = "doieti8s40hlpp6l"
             api_secret = "ijm22wvh5ks2k8m1c72psg17drfj4s29"
-            request_token = "fhXy1TO1i5TnCP63y5XViJ02y9sWrKbf"  # Replace with new one daily
+            request_token = "RxBj3ux92B82fqfLV1kyoFL5PjNXwvBE"  # Replace with new one daily
 
             kite = KiteConnect(api_key=api_key)
 

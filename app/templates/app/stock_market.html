@@ -165,9 +165,9 @@
 <script>
     $(document).ready(function() {
         $('.stock-table').DataTable({
-            "paging": false,  // Disable DataTables pagination since we're using Django's
+            "paging": true,  // Disable DataTables pagination since we're using Django's
             "ordering": true,
-            "searching": false,  // Disable DataTables search since we're using Django's
+            "searching": true,  // Disable DataTables search since we're using Django's
             "responsive": true
         });
     });
