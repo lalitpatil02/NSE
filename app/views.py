@@ -8,7 +8,7 @@ import numpy as np
 from django.utils import timezone
 from datetime import timedelta
 from django.utils.timezone import now
-
+# lalit
 def index(request):
     # Get all filings ordered by filing date
     filings = CorporateFiling.objects.all().order_by('-filing_date')
