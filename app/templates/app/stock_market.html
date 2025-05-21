@@ -13,6 +13,58 @@
     .price-down { color: #dc3545; }
     .market-cap { font-weight: bold; }
     .table-responsive { overflow-x: auto; }
+    
+    /* Pagination Styles */
+    .pagination {
+        display: flex;
+        flex-direction: row;
+        gap: 5px;
+        align-items: center;
+        margin: 20px 0;
+    }
+    .pagination .page-item {
+        display: inline-block;
+    }
+    .pagination .page-link {
+        padding: 8px 12px;
+        border: 1px solid #dee2e6;
+        color: #007bff;
+        background-color: #fff;
+        text-decoration: none;
+    }
+    .pagination .page-item.active .page-link {
+        background-color: #007bff;
+        color: #fff;
+        border-color: #007bff;
+    }
+    .pagination .page-link:hover {
+        background-color: #e9ecef;
+    }
+    .btn-custom {
+        padding: 8px 16px;
+        border: none;
+        background-color: #007bff;
+        color: #fff;
+        border-radius: 4px;
+        margin-left: 5px;
+        transition: background 0.2s;
+    }
+    .btn-custom:hover {
+        background-color: #0056b3;
+    }
+    .btn-outline-custom {
+        padding: 8px 16px;
+        border: 1px solid #007bff;
+        background-color: #fff;
+        color: #007bff;
+        border-radius: 4px;
+        margin-left: 5px;
+        transition: background 0.2s, color 0.2s;
+    }
+    .btn-outline-custom:hover {
+        background-color: #007bff;
+        color: #fff;
+    }
 </style>
 {% endblock %}
 
@@ -21,7 +73,7 @@
     <h2>Stock Market Data</h2>
 
     <div class="filter-section">
-        <form method="get" class="d-flex align-items-center flex-wrap">
+        <form method="get" class="d-flex align-items-center flex-wrap" id="filter-form">
             <input type="text" name="search" class="search-box" placeholder="Search by symbol or name" value="{{ current_search }}">
             <select name="segment" class="filter-input">
                 <option value="">All Segments</option>
@@ -43,7 +95,8 @@
                 <option value="-name" {% if current_sort == '-name' %}selected{% endif %}>Name (Z to A)</option>
                 <option value="name" {% if current_sort == 'name' %}selected{% endif %}>Name (A to Z)</option>
             </select>
-            <button type="submit" class="btn btn-primary">Filter</button>
+            <button type="submit" class="btn-custom">Filter</button>
+            <button type="button" class="btn-outline-custom" id="clear-filters">Clear</button>
         </form>
     </div>
 
@@ -121,20 +174,46 @@
     </div>
 
     {% if page_obj.paginator.num_pages > 1 %}
-    <nav aria-label="Page navigation">
+    <nav aria-label="Page navigation" class="mt-4">
         <ul class="pagination justify-content-center">
-            {% for page in page_obj.paginator.page_range %}
-                <li class="page-item {% if page == page_obj.number %}active{% endif %}">
-                    <a class="page-link" href="?page={{ page }}&search={{ current_search }}&segment={{ current_segment }}&min_market_cap={{ current_min_market_cap }}&max_market_cap={{ current_max_market_cap }}&sort_by={{ current_sort }}">{{ page }}</a>
+            {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1&search={{ current_search }}&segment={{ current_segment }}&min_market_cap={{ current_min_market_cap }}&max_market_cap={{ current_max_market_cap }}&sort_by={{ current_sort }}" aria-label="First">
+                        <span aria-hidden="true">&lt;&lt;</span>
+                    </a>
                 </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}&search={{ current_search }}&segment={{ current_segment }}&min_market_cap={{ current_min_market_cap }}&max_market_cap={{ current_max_market_cap }}&sort_by={{ current_sort }}" aria-label="Back">
+                        <span aria-hidden="true">&lt;</span>
+                    </a>
+                </li>
+            {% endif %}
+            {% for page in page_obj.paginator.page_range %}
+                {% if page_obj.number|add:'-2' <= page and page <= page_obj.number|add:'2' %}
+                    <li class="page-item {% if page == page_obj.number %}active{% endif %}">
+                        <a class="page-link" href="?page={{ page }}&search={{ current_search }}&segment={{ current_segment }}&min_market_cap={{ current_min_market_cap }}&max_market_cap={{ current_max_market_cap }}&sort_by={{ current_sort }}">{{ page }}</a>
+                    </li>
+                {% endif %}
             {% endfor %}
+            {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}&search={{ current_search }}&segment={{ current_segment }}&min_market_cap={{ current_min_market_cap }}&max_market_cap={{ current_max_market_cap }}&sort_by={{ current_sort }}" aria-label="Next">
+                        <span aria-hidden="true">&gt;</span>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&search={{ current_search }}&segment={{ current_segment }}&min_market_cap={{ current_min_market_cap }}&max_market_cap={{ current_max_market_cap }}&sort_by={{ current_sort }}" aria-label="Last">
+                        <span aria-hidden="true">&gt;&gt;</span>
+                    </a>
+                </li>
+            {% endif %}
         </ul>
     </nav>
     {% endif %}
 </div>
 
 <script>
-    const stockSymbols = {{ stock_symbols|safe }};
+    const stockSymbols = JSON.parse('{{ stock_symbols|safe }}');
 </script>
 {% endblock %}
 
@@ -181,6 +260,12 @@
 
         refreshAllStocks();
         setInterval(refreshAllStocks, 10000); // Refresh every 10 seconds
+
+        // Clear filter button functionality
+        $('#clear-filters').on('click', function() {
+            $('#filter-form')[0].reset();
+            window.location = window.location.pathname;
+        });
     });
 </script>
 {% endblock %}
