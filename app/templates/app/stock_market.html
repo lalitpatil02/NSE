@@ -5,13 +5,14 @@
 {% block extrastyle %}
 <link rel="stylesheet" href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css">
 <style>
-    .stock-table { width: 100%; margin-top: 20px; }
+    .stock-table { width: 100%; min-width: 1800px; margin-top: 20px; }
     .filter-section { margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; }
     .search-box { width: 300px; padding: 8px; margin-right: 10px; }
     .filter-input { width: 150px; padding: 8px; margin-right: 10px; }
     .price-up { color: #28a745; }
     .price-down { color: #dc3545; }
     .market-cap { font-weight: bold; }
+    .table-responsive { overflow-x: auto; }
 </style>
 {% endblock %}
 
@@ -62,12 +63,19 @@
                     <th>Current Price</th>
                     <th>5D %</th>
                     <th>10D %</th>
+                    <th>20D %</th>
                     <th>30D %</th>
+                    <th>60D %</th>
+                    <th>90D %</th>
+                    <th>6M %</th>
                     <th>1Y %</th>
                     <th>2Y %</th>
                     <th>3Y %</th>
                     <th>5Y %</th>
                     <th>Hist. Rows</th>
+                    <th>Column1</th>
+                    <th>Column2</th>
+                    <th>Column3</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -86,12 +94,19 @@
                     <td>{{ stock.price|floatformat:2 }}</td>
                     <td>{{ stock.PRICE_CHANGE_5D|default:"--" }}</td>
                     <td>{{ stock.PRICE_CHANGE_10D|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_20D|default:"--" }}</td>
                     <td>{{ stock.PRICE_CHANGE_30D|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_60D|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_90D|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_6M|default:"--" }}</td>
                     <td>{{ stock.PRICE_CHANGE_1Y|default:"--" }}</td>
                     <td>{{ stock.PRICE_CHANGE_2Y|default:"--" }}</td>
                     <td>{{ stock.PRICE_CHANGE_3Y|default:"--" }}</td>
                     <td>{{ stock.PRICE_CHANGE_5Y|default:"--" }}</td>
                     <td>{{ stock.historical_row_count }}</td>
+                    <td>{{ None }}</td>
+                    <td>{{ None }}</td>
+                    <td>{{ None }}</td>
                     <td>
                         {% if stock.tradingsymbol %}
                         <a href="{% url 'stock_detail' stock.tradingsymbol %}" class="btn btn-sm btn-info">View</a>
