@@ -18,6 +18,7 @@
 {% block content %}
 <div class="container-fluid">
     <h2>Stock Market Data</h2>
+
     <div class="filter-section">
         <form method="get" class="d-flex align-items-center flex-wrap">
             <input type="text" name="search" class="search-box" placeholder="Search by symbol or name" value="{{ current_search }}">
@@ -58,11 +59,20 @@
                     <th>Market Cap</th>
                     <th>52W High</th>
                     <th>52W Low</th>
+                    <th>Current Price</th>
+                    <th>5D %</th>
+                    <th>10D %</th>
+                    <th>30D %</th>
+                    <th>1Y %</th>
+                    <th>2Y %</th>
+                    <th>3Y %</th>
+                    <th>5Y %</th>
+                    <th>Hist. Rows</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
-                {% for stock in page_obj %}
+                {% for stock in stock_data_list %}
                 <tr id="stock-{{ stock.tradingsymbol }}">
                     <td>{{ stock.tradingsymbol }}</td>
                     <td>{{ stock.name }}</td>
@@ -71,10 +81,23 @@
                     <td id="price-{{ stock.tradingsymbol }}">--</td>
                     <td id="volume-{{ stock.tradingsymbol }}">--</td>
                     <td id="marketcap-{{ stock.tradingsymbol }}" class="market-cap">--</td>
-                    <td>{{ stock.strike|floatformat:2 }}</td>
-                    <td>{{ stock.tick_size|floatformat:2 }}</td>
+                    <td>{{ stock.high52|floatformat:2 }}</td>
+                    <td>{{ stock.low52|floatformat:2 }}</td>
+                    <td>{{ stock.price|floatformat:2 }}</td>
+                    <td>{{ stock.PRICE_CHANGE_5D|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_10D|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_30D|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_1Y|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_2Y|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_3Y|default:"--" }}</td>
+                    <td>{{ stock.PRICE_CHANGE_5Y|default:"--" }}</td>
+                    <td>{{ stock.historical_row_count }}</td>
                     <td>
-                        <a href="{% url 'stock_detail' stock.tradingsymbol %}" class="btn btn-sm btn-info">View Details</a>
+                        {% if stock.tradingsymbol %}
+                        <a href="{% url 'stock_detail' stock.tradingsymbol %}" class="btn btn-sm btn-info">View</a>
+                        {% else %}
+                        <span class="text-muted">N/A</span>
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}
@@ -85,13 +108,16 @@
     {% if page_obj.paginator.num_pages > 1 %}
     <nav aria-label="Page navigation">
         <ul class="pagination justify-content-center">
-            <!-- Pagination links here if needed -->
+            {% for page in page_obj.paginator.page_range %}
+                <li class="page-item {% if page == page_obj.number %}active{% endif %}">
+                    <a class="page-link" href="?page={{ page }}&search={{ current_search }}&segment={{ current_segment }}&min_market_cap={{ current_min_market_cap }}&max_market_cap={{ current_max_market_cap }}&sort_by={{ current_sort }}">{{ page }}</a>
+                </li>
+            {% endfor %}
         </ul>
     </nav>
     {% endif %}
 </div>
 
-<!-- Provide stock symbols to JavaScript -->
 <script>
     const stockSymbols = {{ stock_symbols|safe }};
 </script>
@@ -102,34 +128,44 @@
 <script>
     function updateLiveStock(symbol) {
         $.getJSON(`/api/live/${symbol}/`, function(data) {
-            if (data.error) return;
+            if (!data || data.error) {
+                console.error(`Error fetching live data for ${symbol}:`, data ? data.error : "No data returned");
+                return;
+            }
 
-            const price = parseFloat(data.price).toFixed(2);
-            const volume = data.volume ? data.volume.toLocaleString() : "N/A";
-            const changePct = data.change_pct !== undefined ? parseFloat(data.change_pct).toFixed(2) : "0.00";
-            const marketCap = data.marketcap ? parseFloat(data.marketcap).toLocaleString() : "0";
+            const price = data.price !== undefined ? parseFloat(data.price).toFixed(2) : "--";
+            const volume = data.volume !== undefined ? data.volume.toLocaleString() : "--";
+            const changePct = data.change_pct !== undefined ? parseFloat(data.change_pct).toFixed(2) : "--";
+            const marketCap = data.marketcap !== undefined ? parseFloat(data.marketcap).toLocaleString() : "--";
 
             $(`#price-${symbol}`).text(price);
             $(`#volume-${symbol}`).text(volume);
             $(`#marketcap-${symbol}`).text(marketCap);
             $(`#change-${symbol}`).text(`${changePct}%`);
-    $(document).ready(function() {
-        $('.stock-table').DataTable({
-            "paging": true,  // Disable DataTables pagination since we're using Django's
-            "ordering": true,
-            "searching": true,  // Disable DataTables search since we're using Django's
-            "responsive": true
+        }).fail(function(jqxhr, textStatus, error) {
+            console.error(`Failed to fetch live data for ${symbol}:`, textStatus, error);
         });
     }
 
     function refreshAllStocks() {
+        if (!Array.isArray(stockSymbols) || stockSymbols.length === 0) {
+            console.error("No stock symbols available for live updates.");
+            return;
+        }
+
         stockSymbols.forEach(symbol => updateLiveStock(symbol));
     }
 
     $(document).ready(function () {
-        alert("sdadasdasdas")
+        $('.stock-table').DataTable({
+            paging: false,
+            ordering: true,
+            searching: false,
+            responsive: true
+        });
+
         refreshAllStocks();
-        setInterval(refreshAllStocks, 10000); // every 10s
+        setInterval(refreshAllStocks, 10000); // Refresh every 10 seconds
     });
 </script>
 {% endblock %}

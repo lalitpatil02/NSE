@@ -189,6 +189,64 @@ from django.shortcuts import render
 from django.db.models import Q
 from .models import InstrumentDetails
 
+from django.db.models import Count, Q
+from django.core.paginator import Paginator
+from django.shortcuts import render
+from django.utils.timezone import now
+from datetime import timedelta
+from .models import InstrumentDetails, HistoricalOHLC
+import json
+
+def get_change(stock_obj, latest_ohlc_obj, days):
+    if not stock_obj or not latest_ohlc_obj:
+        return None
+
+    target_date = now().date() - timedelta(days=days)
+    buffer_date = now().date() - timedelta(days=days + 2)
+
+    past_ohlc = HistoricalOHLC.objects.filter(
+        instrument=stock_obj,
+        timestamp__date__lte=target_date,
+        timestamp__date__gte=buffer_date,
+        close__gt=0
+    ).order_by('-timestamp').first()
+
+    if past_ohlc and latest_ohlc_obj.close and past_ohlc.close:
+        try:
+            change = ((latest_ohlc_obj.close - past_ohlc.close) / past_ohlc.close) * 100
+            return round(change, 2)
+        except ZeroDivisionError:
+            return None
+    return None
+
+from django.db.models import Q, Count, Max, Min
+from django.core.paginator import Paginator
+from django.shortcuts import render
+from django.utils.timezone import now
+from datetime import timedelta
+from collections import defaultdict
+
+def calculate_price_change(stock_obj, latest_ohlc_obj, days):
+    if not stock_obj or not latest_ohlc_obj:
+        return None
+
+    target_date = now().date() - timedelta(days=days)
+    buffer_date = now().date() - timedelta(days=days + 2)
+
+    past_ohlc = HistoricalOHLC.objects.filter(
+        instrument=stock_obj,
+        timestamp__date__lte=target_date,
+        timestamp__date__gte=buffer_date,
+        close__gt=0
+    ).order_by('-timestamp').first()
+
+    if past_ohlc and past_ohlc.close and latest_ohlc_obj.close:
+        try:
+            return round(((latest_ohlc_obj.close - past_ohlc.close) / past_ohlc.close) * 100, 2)
+        except ZeroDivisionError:
+            return None
+    return None
+
 def stock_market_view(request):
     search_query = request.GET.get('search', '')
     min_market_cap = request.GET.get('min_market_cap')
@@ -224,25 +282,96 @@ def stock_market_view(request):
 
     paginator = Paginator(stocks, 25)
     page_number = request.GET.get('page')
-    page_obj = paginator.get_page(page_number)
+    current_page = paginator.get_page(page_number)
 
-    segments = InstrumentDetails.objects.values_list('segment', flat=True).distinct().order_by('segment')
+    current_ids = list(current_page.object_list.values_list('id', flat=True))
 
-    stock_symbols = json.dumps(list(stocks.values_list('tradingsymbol', flat=True)))
+    # 52-week high/low
+    one_year_ago = now() - timedelta(days=365)
+    ohlc_agg = HistoricalOHLC.objects.filter(
+        instrument_id__in=current_ids,
+        timestamp__gte=one_year_ago
+    ).values('instrument_id') \
+     .annotate(high52=Max('high'), low52=Min('low'))
+    high_low_map = {
+        entry['instrument_id']: (
+            round(entry['high52'] or 0.0, 2),
+            round(entry['low52'] or 0.0, 2)
+        ) for entry in ohlc_agg
+    }
 
+    # Historical row count
+    historical_counts = HistoricalOHLC.objects.filter(
+        instrument_id__in=current_ids
+    ).values('instrument_id') \
+     .annotate(count=Count('id'))
+    historical_count_map = {entry['instrument_id']: entry['count'] for entry in historical_counts}
+
+    # Latest and previous OHLCs
+    latest_ohlcs = HistoricalOHLC.objects.filter(
+        instrument_id__in=current_ids
+    ).order_by('instrument_id', '-timestamp')
+
+    ohlc_latest_map = {}
+    ohlc_previous_map = defaultdict(list)
+
+    for ohlc in latest_ohlcs:
+        if ohlc.instrument_id not in ohlc_latest_map:
+            ohlc_latest_map[ohlc.instrument_id] = ohlc
+        elif len(ohlc_previous_map[ohlc.instrument_id]) < 1:
+            ohlc_previous_map[ohlc.instrument_id].append(ohlc)
+
+    stock_data_list = []
+    for stock in current_page.object_list:
+        latest_ohlc = ohlc_latest_map.get(stock.id)
+        previous_ohlc = ohlc_previous_map.get(stock.id, [None])[0]
+
+        current_price = latest_ohlc.close if latest_ohlc else 0.0
+        previous_close = previous_ohlc.close if previous_ohlc else 0.0
+
+        if previous_close:
+            try:
+                change_percent = ((current_price - previous_close) / previous_close) * 100
+            except ZeroDivisionError:
+                change_percent = 0.0
+        else:
+            change_percent = 0.0
+
+        high52, low52 = high_low_map.get(stock.id, (0.0, 0.0))
+        market_cap = current_price * getattr(stock, 'total_shares', 1)
+
+        stock_data = {
+            'tradingsymbol': stock.tradingsymbol,
+            'name': stock.name,
+            'segment': stock.segment,
+            'change_percent': round(change_percent, 2),
+            'price': round(current_price, 2),
+            'open': latest_ohlc.open if latest_ohlc else None,
+            'high': latest_ohlc.high if latest_ohlc else None,
+            'low': latest_ohlc.low if latest_ohlc else None,
+            'previous_close': previous_close,
+            'volume': latest_ohlc.volume if latest_ohlc else None,
+            'marketcap': round(market_cap, 2),
+            'high52': high52,
+            'low52': low52,
+            'PRICE_CHANGE_5D': calculate_price_change(stock, latest_ohlc, 5),
+            'PRICE_CHANGE_10D': calculate_price_change(stock, latest_ohlc, 10),
+            'PRICE_CHANGE_30D': calculate_price_change(stock, latest_ohlc, 30),
+            'PRICE_CHANGE_1Y': calculate_price_change(stock, latest_ohlc, 365),
+            'PRICE_CHANGE_2Y': calculate_price_change(stock, latest_ohlc, 365 * 2),
+            'PRICE_CHANGE_3Y': calculate_price_change(stock, latest_ohlc, 365 * 3),
+            'PRICE_CHANGE_5Y': calculate_price_change(stock, latest_ohlc, 365 * 5),
+            'historical_row_count': historical_count_map.get(stock.id, 0),
+        }
+
+        stock_data_list.append(stock_data)
 
     context = {
-        'page_obj': page_obj,
-        'current_search': search_query,
-        'current_min_market_cap': min_market_cap,
-        'current_max_market_cap': max_market_cap,
-        'current_sort': sort_by,
-        'current_segment': segment,
-        'segments': segments,
-        'stock_symbols': stock_symbols  # 👈 Pass this as a plain JSON string
+        'stock_data_list': stock_data_list,
+        'period_keys': ['5D', '10D', '30D', '1Y', '2Y', '3Y', '5Y'],
     }
-    return render(request, 'app/stock_market.html', context)
 
+    return render(request, 'app/stock_market.html', context)
 
 
 def stock_detail_view(request, symbol):
