@@ -219,33 +219,37 @@ def get_change(stock_obj, latest_ohlc_obj, days):
             return None
     return None
 
-from django.db.models import Q, Count, Max, Min
-from django.core.paginator import Paginator
 from django.shortcuts import render
+from django.core.paginator import Paginator
+from django.db.models import Q, Max, Min, Count
 from django.utils.timezone import now
-from datetime import timedelta
 from collections import defaultdict
+from datetime import timedelta
 
-def calculate_price_change(stock_obj, latest_ohlc_obj, days):
-    if not stock_obj or not latest_ohlc_obj:
+from .models import InstrumentDetails, HistoricalOHLC
+
+
+def calculate_price_change(stock, latest_ohlc, days):
+    """
+    Calculates percentage price change from the close price N days ago to the current price.
+    """
+    if not latest_ohlc:
         return None
 
-    target_date = now().date() - timedelta(days=days)
-    buffer_date = now().date() - timedelta(days=days + 2)
-
-    past_ohlc = HistoricalOHLC.objects.filter(
-        instrument=stock_obj,
-        timestamp__date__lte=target_date,
-        timestamp__date__gte=buffer_date,
-        close__gt=0
+    target_date = latest_ohlc.timestamp - timedelta(days=days)
+    old_ohlc = HistoricalOHLC.objects.filter(
+        instrument_id=stock.id,
+        timestamp__lte=target_date
     ).order_by('-timestamp').first()
 
-    if past_ohlc and past_ohlc.close and latest_ohlc_obj.close:
-        try:
-            return round(((latest_ohlc_obj.close - past_ohlc.close) / past_ohlc.close) * 100, 2)
-        except ZeroDivisionError:
-            return None
-    return None
+    if not old_ohlc or not old_ohlc.close:
+        return None
+
+    try:
+        return round(((latest_ohlc.close - old_ohlc.close) / old_ohlc.close) * 100, 2)
+    except ZeroDivisionError:
+        return 0.0
+
 
 def stock_market_view(request):
     search_query = request.GET.get('search', '')
@@ -356,7 +360,11 @@ def stock_market_view(request):
             'low52': low52,
             'PRICE_CHANGE_5D': calculate_price_change(stock, latest_ohlc, 5),
             'PRICE_CHANGE_10D': calculate_price_change(stock, latest_ohlc, 10),
+            'PRICE_CHANGE_20D': calculate_price_change(stock, latest_ohlc, 20),
             'PRICE_CHANGE_30D': calculate_price_change(stock, latest_ohlc, 30),
+            'PRICE_CHANGE_60D': calculate_price_change(stock, latest_ohlc, 60),
+            'PRICE_CHANGE_90D': calculate_price_change(stock, latest_ohlc, 90),
+            'PRICE_CHANGE_6M': calculate_price_change(stock, latest_ohlc, 182),
             'PRICE_CHANGE_1Y': calculate_price_change(stock, latest_ohlc, 365),
             'PRICE_CHANGE_2Y': calculate_price_change(stock, latest_ohlc, 365 * 2),
             'PRICE_CHANGE_3Y': calculate_price_change(stock, latest_ohlc, 365 * 3),
@@ -368,10 +376,19 @@ def stock_market_view(request):
 
     context = {
         'stock_data_list': stock_data_list,
-        'period_keys': ['5D', '10D', '30D', '1Y', '2Y', '3Y', '5Y'],
+        'period_keys': ['5D', '10D', '20D', '30D', '60D', '90D', '6M', '1Y', '2Y', '3Y', '5Y'],
+        'page_obj': current_page,
+        'current_search': search_query,
+        'current_segment': segment,
+        'current_min_market_cap': min_market_cap,
+        'current_max_market_cap': max_market_cap,
+        'current_sort': sort_by,
+        'segments': InstrumentDetails.objects.values_list('segment', flat=True).distinct(),
+        'stock_symbols': [s.tradingsymbol for s in current_page.object_list if s.tradingsymbol],
     }
 
     return render(request, 'app/stock_market.html', context)
+
 
 
 def stock_detail_view(request, symbol):
